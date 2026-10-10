@@ -1,4 +1,4 @@
-# NFL Spoiler-Free Data
+# NFL Game Data
 
 Public, static, season-scoped snapshots of the nflverse game schedule and team metadata. The site is published with GitHub Pages from GitHub Actions; no generated CSV data is committed to this repository.
 
