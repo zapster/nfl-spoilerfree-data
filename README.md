@@ -8,6 +8,8 @@ The current files and their SHA-256 hashes are listed in [`manifest.json`](https
 
 ### Attribution and License
 
+The original updater, tests, workflow, and website code are MIT-licensed as scoped in [`CODE-LICENSE.md`](CODE-LICENSE.md). This separate notice avoids suggesting that the data files or other upstream-derived material are MIT-licensed.
+
 The upstream [`nflverse-data`](https://github.com/nflverse/nflverse-data) repository declares its material under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/). The published datasets are derived from its `games.csv` and `teams_colors_logos.csv` releases. Attribution: **nflverse-data contributors**, [nflverse-data](https://github.com/nflverse/nflverse-data), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 Changes made here: game rows are filtered and grouped into per-season files, and team rows are filtered to teams used by the published seasons. The source CSV columns and values are retained. The data and manifest provide this attribution and license information for downstream users.
