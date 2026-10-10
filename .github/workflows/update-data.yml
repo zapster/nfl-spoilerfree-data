@@ -19,17 +19,19 @@ jobs:
       deploy: ${{ steps.update.outputs.deploy }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.x"
+      - name: Run updater tests
+        run: python -m unittest discover -s tests -v
       - name: Check releases and build snapshots
         id: update
         run: python scripts/update_data.py --output-dir _site
       - name: Upload Pages artifact
         if: steps.update.outputs.deploy == 'true'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -46,4 +48,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
