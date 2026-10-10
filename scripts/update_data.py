@@ -55,12 +55,16 @@ class UpdateError(RuntimeError):
 
 
 def request_bytes(url: str, *, accept: str = "application/octet-stream") -> bytes:
+    headers = {
+        "Accept": accept,
+        "User-Agent": USER_AGENT,
+    }
+    token = os.environ.get("GITHUB_TOKEN")
+    if token and urllib.parse.urlsplit(url).hostname == "api.github.com":
+        headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(
         url,
-        headers={
-            "Accept": accept,
-            "User-Agent": USER_AGENT,
-        },
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=90) as response:

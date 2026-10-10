@@ -1,9 +1,16 @@
 import argparse
+import os
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from scripts.update_data import UpdateError, publish, validate_games, validate_teams
+from scripts.update_data import (
+    UpdateError,
+    publish,
+    request_bytes,
+    validate_games,
+    validate_teams,
+)
 
 
 class ValidateDataTests(unittest.TestCase):
@@ -101,6 +108,20 @@ class ValidateDataTests(unittest.TestCase):
         self.assertFalse(deployed)
         download_source.assert_not_called()
         write_outputs.assert_called_once_with(False)
+
+    def test_workflow_token_is_only_sent_to_github_api(self):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b"{}"
+
+        with patch.dict(os.environ, {"GITHUB_TOKEN": "workflow-token"}):
+            with patch("scripts.update_data.urllib.request.urlopen", return_value=response) as urlopen:
+                request_bytes("https://api.github.com/repos/nflverse/nflverse-data/releases")
+                api_request = urlopen.call_args.args[0]
+                request_bytes("https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv")
+                source_request = urlopen.call_args.args[0]
+
+        self.assertEqual(api_request.get_header("Authorization"), "Bearer workflow-token")
+        self.assertIsNone(source_request.get_header("Authorization"))
 
 
 if __name__ == "__main__":

@@ -29,6 +29,8 @@ jobs:
       - name: Check releases and build snapshots
         id: update
         run: python scripts/update_data.py --output-dir _site
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload Pages artifact
         if: steps.update.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v5
