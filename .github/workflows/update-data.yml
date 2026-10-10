@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      force_publish:
+        description: Republish the current snapshot and site without downloading unchanged source CSVs
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,9 +34,13 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Check releases and build snapshots
         id: update
-        run: python scripts/update_data.py --output-dir _site
+        run: |
+          args=(--output-dir _site)
+          if [[ "$FORCE_PUBLISH" == "true" ]]; then args+=(--force); fi
+          python scripts/update_data.py "${args[@]}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_PUBLISH: ${{ inputs.force_publish }}
       - name: Upload Pages artifact
         if: steps.update.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v5

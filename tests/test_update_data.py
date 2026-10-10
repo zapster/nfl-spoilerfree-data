@@ -1,13 +1,17 @@
 import argparse
+import json
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from scripts.update_data import (
+    DATA_LICENSE,
     UpdateError,
     publish,
     request_bytes,
+    sha256,
     validate_games,
     validate_teams,
 )
@@ -92,7 +96,11 @@ class ValidateDataTests(unittest.TestCase):
             "source": {"games": games_source, "teams": teams_source},
             "seasons": {},
         }
-        args = argparse.Namespace(output_dir="unused", manifest_url="https://example.test/manifest.json")
+        args = argparse.Namespace(
+            output_dir="unused",
+            manifest_url="https://example.test/manifest.json",
+            force=False,
+        )
 
         with tempfile.TemporaryDirectory() as output_dir:
             args.output_dir = output_dir
@@ -108,6 +116,60 @@ class ValidateDataTests(unittest.TestCase):
         self.assertFalse(deployed)
         download_source.assert_not_called()
         write_outputs.assert_called_once_with(False)
+
+    def test_force_republishes_previous_data_without_upstream_downloads(self):
+        games_source = {"changeSignal": {"kind": "asset-digest", "value": "games"}}
+        teams_source = {"changeSignal": {"kind": "asset-digest", "value": "teams"}}
+        season_data = b"game_id,game_type\n2099_01_A_AT_B,REG\n"
+        teams_data = b"team_abbr\nA\nB\n"
+        season_path = f"seasons/2099-{sha256(season_data)}.csv"
+        teams_path = f"teams-{sha256(teams_data)}.csv"
+        season_entry = {
+            "path": season_path,
+            "sha256": sha256(season_data),
+            "records": 1,
+            "gameTypeCounts": {"REG": 1},
+            "teams": ["A", "B"],
+        }
+        teams_entry = {"path": teams_path, "sha256": sha256(teams_data), "records": 2}
+        previous = {
+            "manifestVersion": 1,
+            "source": {"games": games_source, "teams": teams_source},
+            "seasons": {"2099": season_entry},
+            "teams": teams_entry,
+        }
+        data_by_path = {season_path: season_data, teams_path: teams_data}
+        args = argparse.Namespace(
+            output_dir="unused",
+            manifest_url="https://example.test/manifest.json",
+            force=True,
+        )
+
+        def copy_previous_file(manifest_url, entry, output_dir, pattern):
+            data = data_by_path[entry["path"]]
+            destination = Path(output_dir) / entry["path"]
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(data)
+            return data
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            args.output_dir = output_dir
+            with (
+                patch("scripts.update_data.read_previous_manifest", return_value=previous),
+                patch("scripts.update_data.source_release", side_effect=[games_source, teams_source]),
+                patch("scripts.update_data.previous_file", side_effect=copy_previous_file),
+                patch("scripts.update_data.download_source") as download_source,
+                patch("scripts.update_data.write_summary"),
+                patch("scripts.update_data.write_github_outputs") as write_outputs,
+            ):
+                deployed = publish(args)
+
+            manifest = json.loads((Path(output_dir) / "manifest.json").read_text())
+
+        self.assertTrue(deployed)
+        self.assertEqual(manifest["dataLicense"], DATA_LICENSE)
+        download_source.assert_not_called()
+        write_outputs.assert_called_once_with(True)
 
     def test_workflow_token_is_only_sent_to_github_api(self):
         response = MagicMock()

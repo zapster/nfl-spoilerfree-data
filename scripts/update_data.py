@@ -48,6 +48,13 @@ GAMES_REQUIRED = {
 SEASON_FILE_RE = re.compile(r"seasons/[0-9]{4}-[0-9a-f]{64}\.csv\Z")
 TEAMS_FILE_RE = re.compile(r"teams-[0-9a-f]{64}\.csv\Z")
 USER_AGENT = "nfl-spoilerfree-data-updater"
+DATA_LICENSE = {
+    "identifier": "CC-BY-4.0",
+    "name": "Creative Commons Attribution 4.0 International",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "nflverse-data contributors, https://github.com/nflverse/nflverse-data",
+    "changes": "Game rows are filtered into per-season files; team rows are filtered to teams used by published seasons.",
+}
 
 
 class UpdateError(RuntimeError):
@@ -323,14 +330,18 @@ def publish(args: argparse.Namespace) -> bool:
             or old_sources[name].get("changeSignal") != source["changeSignal"]
         }
 
-    if not changed:
+    if not changed and not args.force:
         message = "No upstream source release changed. No CSV files were downloaded; Pages deployment skipped."
         print(message)
         write_summary(f"## nflverse data update\n\n{message}")
         write_github_outputs(False)
         return False
 
-    print(f"Changed sources: {', '.join(sorted(changed))}")
+    if changed:
+        print(f"Changed sources: {', '.join(sorted(changed))}")
+    else:
+        print("No upstream source changed; republishing the current snapshots.")
+    changed_summary = ", ".join(sorted(changed)) or "none"
 
     if "games" in changed:
         games_data = download_source(sources["games"])
@@ -425,6 +436,7 @@ def publish(args: argparse.Namespace) -> bool:
         "manifestVersion": 1,
         "publicationFormatVersion": 1,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "dataLicense": DATA_LICENSE,
         "source": sources,
         "seasons": {season: season_entries[season] for season in sorted(season_entries, key=int)},
         "teams": teams_entry,
@@ -441,7 +453,7 @@ def publish(args: argparse.Namespace) -> bool:
     deploy = previous is None or manifest != previous
     message = (
         "## nflverse data update\n\n"
-        f"Changed sources: {', '.join(sorted(changed))}\n\n"
+        f"Changed sources: {changed_summary}\n\n"
         f"Seasons: {len(season_entries)}; games: {manifest['recordCounts']['games']}; "
         f"teams: {teams_entry['records']}\n\n"
         f"Game types: `{json.dumps(manifest['recordCounts']['gameTypeCounts'], sort_keys=True)}`\n\n"
@@ -461,6 +473,11 @@ def main() -> int:
         help="URL of the currently deployed manifest",
     )
     parser.add_argument("--output-dir", default="_site", help="Static-site output directory")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Republish current files even when neither upstream release changed",
+    )
     args = parser.parse_args()
     try:
         publish(args)
